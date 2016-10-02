@@ -71,7 +71,7 @@ live_dangerously = no
 ## 04. Install and configure udhcp and ntp
 Configure network interface with static ip:
 ```
-vi /etc/network/interfaces
+vim /etc/network/interfaces
 ...
 iface etho0 inet dhcp
 iface etho0 inet static
@@ -89,14 +89,14 @@ service networking restart
 Install udhcp and npt packages
 ```
 apt-get install -y dhcpd ntp
-vi /etc/default/udhcp
+vim /etc/default/udhcp
 ---
 -DHCPD_ENABLED="no"
 +DHCPD_ENABLED="yes"
 ---
 
 # configure dhcpd
-vi /etc/udhcp.conf
+vim /etc/udhcp.conf
 --- set up proper start/end addresses
 start		192.168.33.100
 end		192.168.33.150
@@ -107,7 +107,7 @@ opt	router  192.168.33.1
 #opt    2nd dns
 ---
 
-/etc/init.d/udhspd start
+vim /etc/init.d/udhspd start
 
 ## set up time
 date
@@ -115,3 +115,44 @@ date
 ntpdate pool.ntp.org	# update the time
 /etc/init.d/ntp start
 ```
+
+## 05. SIP phone peers
+All sip peers configuration done in /etc/asterisk/sip.conf
+Open required ports on host/server machine!!!!
+```
+cd /etc/asterisk
+cp sip.conf sip.conf.orig
+
+vi /etc/asterisk/sip.conf
+# delete all comments and then blank lines
+:g/^\s*;/d
+:g/^\s*$/d
+---
+
+# add new peers
+[general]
++qualify=yes		# qualify connection
+# create peers
++[james]
++	type=friend	# friend means sending and receiving calls
++	context=phones	# dialplan context
++	allow=ulaw,alow	# allow some codecs - method your convert speech to api
++	secret=12345678
++	host=dynamic
++[mathias]
++	type=friend	
++	context=phones	
++	allow=ulaw,alow	
++	secret=12345678
++	host=dynamic
+---
+
+# go to asterisk CLI, update config and check status
+asterisk -rvvv
+> sip show peers
+> sip reload
+> sip show peers
+```
+
+
+
