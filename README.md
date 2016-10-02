@@ -3,13 +3,14 @@ Based on pascom asterisk tutorial (short text version)
 
 
 ## 01-03. Preparing environment
-Swith to the superuser or use _sudo_.
+Swith to the superuser or use _sudo_
 First of all, you need install required packages for asterisk installation:
 ```
-apt-get install build-essential wget libssl-dev libncurses5-dev libnewt-dev libxml2-dev linux-headers-$(uname -r) libsqlite3-dev uuid-dev libjansson-dev
+apt-get install -y build-essential wget libssl-dev libncurses5-dev libnewt-dev libxml2-dev \
+linux-headers-$(uname -r) libsqlite3-dev uuid-dev libjansson-dev
 ```
 build-essential package contains tool for compilation - gcc, make etc.
-Now go to [www.asterisk.org](http://www.asterisk.org/downloads)and download latest stable version of asterisk
+Now go to [www.asterisk.org](http://www.asterisk.org/downloads) and download latest stable version of asterisk
 ```
 wget http://downloads.asterisk.org/pub/telephony/asterisk/asterisk-13-current.tar.gz
 ```
@@ -67,5 +68,50 @@ Optional changes:
 live_dangerously = no	
 ...
 ```
+## 04. Install and configure udhcp and ntp
+Configure network interface with static ip:
+```
+vi /etc/network/interfaces
+...
+iface etho0 inet dhcp
+iface etho0 inet static
+	address 192.168.33.10
+	netmask 255.255.255.0
+	gateway 192.168.33.1
+...
+vim /etc/resolv.con
+...
+nameserver 8.8.8.8
+...
+service networking restart
 
+```
+Install udhcp and npt packages
+```
+apt-get install -y dhcpd ntp
+vi /etc/default/udhcp
+---
+-DHCPD_ENABLED="no"
++DHCPD_ENABLED="yes"
+---
 
+# configure dhcpd
+vi /etc/udhcp.conf
+--- set up proper start/end addresses
+start		192.168.33.100
+end		192.168.33.150
+
+opt	dns 	8.8.8.8
+opt	router  192.168.33.1
+#pt	wins
+#opt    2nd dns
+---
+
+/etc/init.d/udhspd start
+
+## set up time
+date
+/etc/init.d/ntp stop
+ntpdate pool.ntp.org	# update the time
+/etc/init.d/ntp start
+```
