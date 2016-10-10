@@ -1,8 +1,7 @@
 # asterisk-tutorial
 Based on pascom asterisk tutorial (short text version)
 
-
-## 01-03. Preparing environment
+## 01-03. Preparing environment.
 Switch to superuser or use _sudo_.
 First of all, you need to install required packages for asterisk compilation:
 ```bash
@@ -67,7 +66,7 @@ $ vim /etc/asterisk/asterisk.config
 live_dangerously = no	
 ...
 ```
-## 04. Install and configure udhcp and ntp
+## 04. Install and configure udhcp and ntp.
 Configure network interface with static ip:
 ```bash
 $ vim /etc/network/interfaces
@@ -116,12 +115,12 @@ $ ntpdate pool.ntp.org	# update the time
 $ /etc/init.d/ntp start
 ```
 
-## 05. SIP phone peers
+## 05. SIP phone peers.
 All sip peers configuration done in /etc/asterisk/sip.conf
 (Open required ports on host/server machine!)
 ```bash
 $ cd /etc/asterisk
-$ cp sip.conf sip.conf.orig
+$ cp sip.conf sip.conf.sample
 $ vi /etc/asterisk/sip.conf
 ---
 # delete all comments and then blank lines
@@ -130,11 +129,11 @@ $ vi /etc/asterisk/sip.conf
 
 # add new peers
 [general]
-qualify=yes		# connection's quality
+qualify=yes				# connection's quality
 [james]
-	type=friend	# friend means sending and receiving calls
-	context=phones	# dialplan context
-	allow=ulaw,alow	# allow some codecs - method in which asterisk convert a speech
+	type=friend			# friend means sending and receiving calls
+	context=phones		# dialplan context
+	allow=ulaw,alow		# allow some codecs - method in which asterisk convert a speech
 	secret=12345678
 	host=dynamic
 [mathias]
@@ -151,6 +150,116 @@ asterisk> sip show peers
 asterisk> sip reload
 asterisk> sip show peers
 ```
+
+## 06-08. Dialplan intro.
+asteris orginized in contexes.
+Every call going inside/outside manages by dialplan.
+Dialplan is a configuration file. asterisk reads lines one by one.
+Dialplan defined in /etc/extensions.conf file. Let's make some simple changes to it:
+```bash
+$ cd /etc/asterisk
+$ cp extensions.conf extensions.conf.sample
+$ echo "" > extensions.conf
+$ vim extensions.conf
+----
+[phones]				# defining a context 
+exten => 100,1,NoOp(First Line)		# print the first line
+exten => 100,2,NoOp(Second Line)	# print the second line
+exten => 100,3,Dial(SIP/james)		# Dial(Technology/resouce), dial james 
+exten => 100,4,Hangup			
+# NoOp(), Dial(), Hangup - applications
+
+$ asrerisk -r
+asterisk> dialplan reload		
+
+# we can get app info via asterisk cli
+asterisk> core show applications			# show all apps
+asterisk> core show applications like dial	
+asterisk> core show applications describing dial
+asterisk> core show application dial			# get manual for dial app
+```
+Now, we dial to james and got error - unable to re-open file /var/log/asterisk//cdr-csv//Master.cs .
+We have create log file to fix it:
+```bash
+$ touch /var/log/astefrisk//cdr-csv//Master.cs
+$ chown asterisk /var/log/asterisk//cdr-csv//Master.cs
+```
+
+There're some trick to make our life simpler:
+```bash
+exten => 100,1,NoOp(First Line)	  -->   exten => 100,1,NoOp(First Line)
+exten => 100,2,NoOp(Second Line)  -->   exten => 100,n,NoOp(Second Line)	
+exten => 100,3,Dial(SIP/james)	  -->   exten => 100,n,Dial(SIP/james)	
+exten => 100,4,Hangup		  -->   exten => 100,n,Hangup
+```
+n - next.
+And more... You can say "same", if you are in the same extension:
+
+exten => 100,1,NoOp(First Line)   -->   exten => 100,1,NoOp(First Line)
+exten => 100,n,NoOp(Second Line)  -->   same => n,NoOp(Second Line)
+exten => 100,n,Dial(SIP/james)    -->   same => n,Dial(SIP/james)
+exten => 100,n,Hangup		  -->   same => n,Hangup
+```
+Finaly our dialplan looks pretty..
+```bash
+[phones]
+exten => 100,1,NoOp(First Line)
+same => n,NoOp(Second Line)
+same => n,Dial(SIP/james)		
+same => n,Hangup
+
+exten => 200,1,NoOp(First Line)
+same => n,NoOp(Second Line)
+same => n,Dial(SIP/mathias)		
+same => n,Hangup
+```
+When we try call to james, get another error - exited non-zero on 'SIP/james-00000011'.
+(not imported module yet)
+
+## 09. File playback.
+Test playback files stored in /var/lib/asterisk/sounds/ folder. Let's check it:
+```bash
+$ ls /var/lib/asterisk/sounds/en/tt_* 
+```
+To set up custom sound that caller will hear while ringing, asterisk use Playback(_filename_) app. Don't try to provide file extention, aster choose it automatically.
+```bash
+exten => 200,1,NoOp(First Line)
+same => n,NoOp(Second Line)
++same => n, Playback(tt-monkeys)
+same => n,Dial(SIP/mathias)		
+same => n,Hangup
+```
+
+## 10. Incoming calls simulation.
+Modify our dialplan (extensions.conf):
+```bash
+[phones]
+exten => 100,1,NoOp(Call for James)
+same => n,Dial(SIP/james)		
+same => n,Hangup
+
+exten => 200,1,NoOp(Call for Mathias)
+same => n,Dial(SIP/mathias)		
+same => n,Hangup
+```
+To simulate outside peer we have to create new peer in /etc/asterisk/sip.conf:
+```bash
+[outside]
+	type=friend
+	context=incoming
+	allow=ulaw,alaw
+	secret=12345678
+	host=dynamic
+```
+Reload dialplan and try to call from outside.
+To route call from outsite to local peer we have to make some changes in dialplan.
+/etc/asterisk/extensions.conf
+```bash
+[incoming]
+
+exten => 991123123,1,Goto(phones,100,1)
+```
+External call goes to context incoming, searches for 91123100 and than go to context phones and dial exten 100 with priority 1.
 
 
 
